@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}Upload Resume — AI Resume Screener{% endblock %}
+
+{% block content %}
+<div class="page-header fade-in-up">
+    <h1>📤 Upload Resume</h1>
+    <p class="subtitle">Upload a candidate's resume and select a job to get an AI-powered match score</p>
+</div>
+
+<div class="grid-2" style="align-items:start;">
+    <!-- ── Upload Form ─────────────────────── -->
+    <div class="card fade-in-up">
+        <div style="margin-bottom:24px;">
+            <h2 style="font-family:'Plus Jakarta Sans',sans-serif;font-size:1.1rem;font-weight:700;margin-bottom:6px;">
+                Candidate Details</h2>
+            <p style="font-size:0.82rem;color:var(--text-muted);">Fill in the details and select the job position</p>
+        </div>
+
+        <form id="uploadForm" action="{{ url_for('upload') }}" method="POST" enctype="multipart/form-data">
+
+            <div class="form-group">
+                <label for="cand-name">Full Name <span class="required">*</span></label>
+                <input type="text" id="cand-name" name="name" placeholder="e.g. Priya Sharma" required />
+            </div>
+
+            <div class="form-group">
+                <label for="cand-email">Email Address</label>
+                <input type="email" id="cand-email" name="email" placeholder="priya@example.com" />
+            </div>
+
+            <div class="form-group">
+                <label for="job-select">Job Position <span class="required">*</span></label>
+                <select id="job-select" name="job_id" required>
+                    <option value="">— Select a Job —</option>
+                    {% for job in jobs %}
+                    <option value="{{ job.id }}" {% if request.args.get('job')|int==job.id %}selected{% endif %}>
+                        {{ job.title }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- ── Job Description Preview ──────── -->
+            <div id="jobPreview" class="form-group" style="display:none;">
+                <label>Job Description Preview</label>
+                <div id="jobDescText"
+                    style="background:rgba(108,99,255,0.05);border:1px solid rgba(108,99,255,0.15);border-radius:10px;padding:12px 14px;font-size:0.8rem;color:var(--text-secondary);line-height:1.7;max-height:110px;overflow-y:auto;">
+                </div>
+            </div>
+
+            <!-- ── File Upload Zone ──────────────── -->
+            <div class="form-group">
+                <label>Resume File <span class="required">*</span></label>
+                <div class="upload-zone" id="uploadZone">
+                    <input type="file" id="resumeFile" name="resume" accept=".pdf,.docx,.doc,.txt" required />
+                    <span class="upload-icon">☁️</span>
+                    <h3 id="uploadTitle">Drag &amp; Drop your resume here</h3>
+                    <p id="uploadSub">or click to browse files</p>
+                    <div class="file-types">
+                        <span class="file-type-chip">PDF</span>
+                        <span class="file-type-chip">DOCX</span>
+                        <span class="file-type-chip">DOC</span>
+                        <span class="file-type-chip">TXT</span>
+                    </div>
+                </div>
+                <div id="fileInfo"
+                    style="display:none;margin-top:10px;padding:10px 14px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;font-size:0.82rem;color:var(--success);display:flex;align-items:center;gap:8px;">
+                    <span>📎</span> <span id="fileName"></span>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:14px;"
+                id="analyzeBtn">
+                🧠 Analyze Resume
+            </button>
+        </form>
+    </div>
+
+    <!-- ── Info Panel ─────────────────────────── -->
+    <div style="display:flex;flex-direction:column;gap:18px;" class="fade-in-up">
+        <!-- How Scoring Works -->
+        <div class="card">
+            <h3 style="font-size:0.95rem;font-weight:700;margin-bottom:16px;">📐 Scoring Formula</h3>
+            <div style="display:flex;flex-direction:column;gap:14px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-size:0.85rem;color:var(--text-secondary);">🔤 TF-IDF Cosine Similarity</span>
+                    <span style="font-weight:700;color:var(--accent);">60%</span>
+                </div>
+                <div style="background:rgba(108,99,255,0.08);border-radius:6px;height:6px;overflow:hidden;">
+                    <div
+                        style="width:60%;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));border-radius:6px;">
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-size:0.85rem;color:var(--text-secondary);">🎯 Skill Keyword Match</span>
+                    <span style="font-weight:700;color:#10b981;">40%</span>
+                </div>
+                <div style="background:rgba(16,185,129,0.08);border-radius:6px;height:6px;overflow:hidden;">
+                    <div
+                        style="width:40%;height:100%;background:linear-gradient(90deg,#10b981,#06d6a0);border-radius:6px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Label Guide -->
+        <div class="card">
+            <h3 style="font-size:0.95rem;font-weight:700;margin-bottom:14px;">🏷️ Result Labels</h3>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <span class="badge badge-shortlist">✅ Shortlist</span>
+                    <span style="font-size:0.8rem;color:var(--text-secondary);">Score ≥ 70% — Strong match</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <span class="badge badge-review">⏳ Review</span>
+                    <span style="font-size:0.8rem;color:var(--text-secondary);">Score 40–69% — Possible fit</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <span class="badge badge-reject">❌ Reject</span>
+                    <span style="font-size:0.8rem;color:var(--text-secondary);">Score &lt; 40% — Poor match</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tips -->
+        <div class="card" style="background:rgba(108,99,255,0.06);border-color:rgba(108,99,255,0.15);">
+            <h3 style="font-size:0.95rem;font-weight:700;margin-bottom:12px;">💡 Tips for Best Results</h3>
+            <ul style="display:flex;flex-direction:column;gap:8px;font-size:0.8rem;color:var(--text-secondary);">
+                <li>✔ Use text-based PDFs (not scanned images)</li>
+                <li>✔ Include skills explicitly in the resume</li>
+                <li>✔ DOCX files often give better text extraction</li>
+                <li>✔ Make sure job description has skills listed</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- ── Analyzing Overlay ───────────────────────── -->
+<div class="analyzing-overlay" id="analyzingOverlay">
+    <div class="spinner"></div>
+    <div class="analyzing-text">🧠 Analyzing Resume...</div>
+    <div class="analyzing-sub">Running NLP pipeline — this may take a moment</div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const jobDescriptions = {
+  {% for job in jobs %}
+    "{{ job.id }}": "{{ job.description[:200]|replace('"', '\\"')|replace('\n', ' ') }}...",
+        {% endfor %}
+};
+
+    document.getElementById('job-select').addEventListener('change', function () {
+        const preview = document.getElementById('jobPreview');
+        const text = document.getElementById('jobDescText');
+        if (this.value && jobDescriptions[this.value]) {
+            text.textContent = jobDescriptions[this.value];
+            preview.style.display = 'block';
+        } else {
+            preview.style.display = 'none';
+        }
+    });
+
+    // Trigger if pre-selected
+    const sel = document.getElementById('job-select');
+    if (sel.value) sel.dispatchEvent(new Event('change'));
+
+    // File input feedback
+    document.getElementById('resumeFile').addEventListener('change', function () {
+        if (this.files && this.files[0]) {
+            const fi = document.getElementById('fileInfo');
+            document.getElementById('fileName').textContent = this.files[0].name + ' (' + (this.files[0].size / 1024).toFixed(1) + ' KB)';
+            fi.style.display = 'flex';
+            document.getElementById('uploadTitle').textContent = '✅ File selected!';
+            document.getElementById('uploadSub').textContent = this.files[0].name;
+        }
+    });
+
+    // Drag & drop styling
+    const zone = document.getElementById('uploadZone');
+    ['dragenter', 'dragover'].forEach(e => zone.addEventListener(e, ev => { ev.preventDefault(); zone.classList.add('drag-over'); }));
+    ['dragleave', 'drop'].forEach(e => zone.addEventListener(e, ev => { ev.preventDefault(); zone.classList.remove('drag-over'); }));
+
+    // Show analyzing overlay on submit
+    document.getElementById('uploadForm').addEventListener('submit', function () {
+        document.getElementById('analyzingOverlay').classList.add('active');
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — AI Resume Screener{% endblock %}
+
+{% block content %}
+<div class="page-header fade-in-up">
+    <h1>HR Dashboard</h1>
+    <p class="subtitle">Manage job postings and monitor screening results</p>
+</div>
+
+<!-- ── Job Stats Grid ─────────────────────────── -->
+<div class="section-title fade-in-up">
+    <h2>💼 Job Postings</h2>
+    <button class="btn btn-primary btn-sm" onclick="document.getElementById('addJobModal').classList.add('active')">
+        ＋ Add New Job
+    </button>
+</div>
+
+{% if job_stats %}
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px;margin-bottom:32px;">
+    {% for js in job_stats %}
+    <div class="card fade-in-up" style="padding:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+            <div>
+                <div style="font-weight:700;font-size:1rem;margin-bottom:4px;">{{ js.job.title }}</div>
+                <div style="font-size:0.75rem;color:var(--text-muted);">Added {{ js.job.created_at.strftime('%b %d, %Y')
+                    }}</div>
+            </div>
+            <form action="{{ url_for('delete_job', job_id=js.job.id) }}" method="POST"
+                onsubmit="return confirm('Delete this job and all its candidates?')">
+                <button type="submit" class="btn btn-danger btn-sm btn-icon" title="Delete Job">🗑</button>
+            </form>
+        </div>
+
+        <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.6;">
+            {{ js.job.description[:110] }}...
+        </p>
+
+        <div style="margin-bottom:14px;">
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:6px;">Required Skills</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;">
+                {% for skill in js.job.skills_list()[:5] %}
+                <span
+                    style="background:rgba(108,99,255,0.1);border:1px solid rgba(108,99,255,0.2);color:var(--accent);padding:2px 9px;border-radius:12px;font-size:0.7rem;font-weight:600;">{{
+                    skill }}</span>
+                {% endfor %}
+                {% if js.job.skills_list()|length > 5 %}
+                <span style="font-size:0.7rem;color:var(--text-muted);padding:2px 6px;">+{{ js.job.skills_list()|length
+                    - 5 }} more</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div style="display:flex;gap:14px;font-size:0.82rem;padding-top:12px;border-top:1px solid var(--glass-border);">
+            <span>👥 <strong style="color:var(--text-primary);">{{ js.total }}</strong> Applicants</span>
+            <span>✅ <strong style="color:var(--success);">{{ js.shortlisted }}</strong> Shortlisted</span>
+        </div>
+
+        <div style="margin-top:14px;display:flex;gap:8px;">
+            <a href="{{ url_for('upload') }}?job={{ js.job.id }}" class="btn btn-primary btn-sm"
+                style="flex:1;justify-content:center;">Screen Resume</a>
+            <a href="{{ url_for('candidates') }}?job_id={{ js.job.id }}" class="btn btn-outline btn-sm"
+                style="flex:1;justify-content:center;">View Candidates</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card empty-state fade-in-up" style="margin-bottom:32px;">
+    <span class="empty-icon">💼</span>
+    <p>No jobs yet. <button class="btn btn-primary btn-sm"
+            onclick="document.getElementById('addJobModal').classList.add('active')" style="margin-left:8px;">Add First
+            Job →</button></p>
+</div>
+{% endif %}
+
+<!-- ── Recent Candidates Table ────────────────── -->
+<div class="card fade-in-up">
+    <div class="section-title">
+        <h2>👥 All Candidates</h2>
+        <a href="{{ url_for('candidates') }}" class="btn btn-outline btn-sm">Full View &amp; Filter</a>
+    </div>
+
+    {% if candidates %}
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Candidate</th>
+                    <th>Job</th>
+                    <th>Match Score</th>
+                    <th>Status</th>
+                    <th>Screened On</th>
+                    <th>Result</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in candidates[:20] %}
+                <tr>
+                    <td style="color:var(--text-muted);font-size:0.8rem;">{{ loop.index }}</td>
+                    <td>
+                        <strong>{{ c.name }}</strong>
+                        {% if c.email %}<br><span style="font-size:0.73rem;color:var(--text-muted);">{{ c.email
+                            }}</span>{% endif %}
+                    </td>
+                    <td style="color:var(--text-secondary);">{{ c.job.title if c.job else '—' }}</td>
+                    <td>
+                        <div class="score-bar-wrap">
+                            <div class="score-bar-bg">
+                                <div class="score-bar-fill"
+                                    style="width:{{ c.score }}%;background:
+                  {% if c.score>=70 %}var(--success){% elif c.score>=40 %}var(--warning){% else %}var(--danger){% endif %};"></div>
+                            </div>
+                            <span class="score-text"
+                                style="color:{% if c.score>=70 %}var(--success){% elif c.score>=40 %}var(--warning){% else %}var(--danger){% endif %};">
+                                {{ c.score }}%
+                            </span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge badge-{{ c.label|lower }}">
+                            {{ '✅' if c.label=='Shortlist' else ('⏳' if c.label=='Review' else '❌') }} {{ c.label }}
+                        </span>
+                    </td>
+                    <td style="color:var(--text-muted);font-size:0.78rem;">{{ c.uploaded_at.strftime('%b %d, %Y') }}
+                    </td>
+                    <td><a href="{{ url_for('result', candidate_id=c.id) }}" class="btn btn-outline btn-sm">View</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <span class="empty-icon">📭</span>
+        <p>No candidates yet. <a href="{{ url_for('upload') }}" style="color:var(--accent);">Screen your first resume
+                →</a></p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ── Add Job Modal ──────────────────────────── -->
+<div class="modal-overlay" id="addJobModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2>💼 Add New Job Posting</h2>
+            <button class="modal-close"
+                onclick="document.getElementById('addJobModal').classList.remove('active')">✕</button>
+        </div>
+        <form action="{{ url_for('add_job') }}" method="POST">
+            <div class="form-group">
+                <label for="job-title">Job Title <span class="required">*</span></label>
+                <input type="text" id="job-title" name="title" placeholder="e.g. Software Engineer" required />
+            </div>
+            <div class="form-group">
+                <label for="job-desc">Job Description <span class="required">*</span></label>
+                <textarea id="job-desc" name="description" rows="5"
+                    placeholder="Describe the role, responsibilities, and requirements..." required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="job-skills">Required Skills <span
+                        style="color:var(--text-muted);font-weight:400;">(comma-separated)</span></label>
+                <input type="text" id="job-skills" name="skills_required"
+                    placeholder="python, django, sql, docker, git" />
+            </div>
+            <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:8px;">
+                <button type="button" class="btn btn-outline"
+                    onclick="document.getElementById('addJobModal').classList.remove('active')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Add Job Posting</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Close modal on overlay click
+    document.getElementById('addJobModal').addEventListener('click', function (e) {
+        if (e.target === this) this.classList.remove('active');
+    });
+    // Open modal if URL has #add-job
+    if (window.location.hash === '#add-job') {
+        document.getElementById('addJobModal').classList.add('active');
+    }
+</script>
+{% endblock %}

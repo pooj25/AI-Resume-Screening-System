@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}Result — {{ candidate.name }} — AI Resume Screener{% endblock %}
+
+{% block extra_head %}
+<style>
+    .gauge-wrap {
+        position: relative;
+        width: 200px;
+        height: 200px;
+        margin: 0 auto;
+    }
+
+    .gauge-wrap svg {
+        width: 200px;
+        height: 200px;
+    }
+
+    .gauge-center {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- ── Back + Actions ──────────────────────────── -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;" class="fade-in-up">
+    <a href="{{ url_for('dashboard') }}" class="btn btn-outline btn-sm">← Back to Dashboard</a>
+    <div style="display:flex;gap:10px;">
+        <a href="{{ url_for('upload') }}" class="btn btn-primary btn-sm">Screen Another →</a>
+        <form action="{{ url_for('delete_candidate', candidate_id=candidate.id) }}" method="POST"
+            onsubmit="return confirm('Remove this candidate?')">
+            <button type="submit" class="btn btn-danger btn-sm">🗑 Remove</button>
+        </form>
+    </div>
+</div>
+
+<!-- ── Result Header ──────────────────────────── -->
+<div class="result-header fade-in-up">
+    <!-- Score Gauge -->
+    <div class="gauge-container">
+        <div class="gauge-wrap">
+            <svg viewBox="0 0 200 200">
+                <circle class="gauge-track" cx="100" cy="100" r="80" />
+                <circle class="gauge-fill" cx="100" cy="100" r="80" id="gaugeCircle"
+                    stroke="{% if candidate.score>=70 %}#10b981{% elif candidate.score>=40 %}#f59e0b{% else %}#ef4444{% endif %}"
+                    stroke-dasharray="0 503" stroke-dashoffset="0" />
+            </svg>
+            <div class="gauge-center">
+                <div class="gauge-score"
+                    style="color:{% if candidate.score>=70 %}#10b981{% elif candidate.score>=40 %}#f59e0b{% else %}#ef4444{% endif %};"
+                    id="scoreDisplay">0%</div>
+                <div class="gauge-label">Match Score</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Candidate Info -->
+    <div class="result-info" style="flex:1;">
+        <div style="margin-bottom:8px;">
+            <span class="badge badge-{{ candidate.label|lower }}" style="font-size:0.82rem;padding:6px 16px;">
+                {{ '✅' if candidate.label=='Shortlist' else ('⏳' if candidate.label=='Review' else '❌') }} {{
+                candidate.label }}
+            </span>
+        </div>
+        <h2>{{ candidate.name }}</h2>
+        <div class="result-meta" style="margin-bottom:10px;">
+            {% if candidate.email %}<span>📧 {{ candidate.email }}</span><span class="sep">•</span>{% endif %}
+            <span>💼 {{ job.title }}</span>
+            <span class="sep">•</span>
+            <span>🕐 {{ candidate.uploaded_at.strftime('%B %d, %Y at %I:%M %p') }}</span>
+        </div>
+        <div style="font-size:0.85rem;color:var(--text-secondary);">
+            Resume: <code
+                style="background:rgba(108,99,255,0.1);padding:2px 8px;border-radius:5px;color:var(--accent);">{{ candidate.resume_filename }}</code>
+        </div>
+    </div>
+</div>
+
+<!-- ── Recommendation Banner ──────────────────── -->
+<div class="rec-banner rec-{{ candidate.label|lower }} fade-in-up">
+    <span class="rec-icon">{{ '🚀' if candidate.label=='Shortlist' else ('🤔' if candidate.label=='Review' else '🚫')
+        }}</span>
+    <div>
+        <div>
+            {% if candidate.label == 'Shortlist' %}
+            Strong match — Recommended for interview
+            {% elif candidate.label == 'Review' %}
+            Moderate match — Manual review recommended
+            {% else %}
+            Low match — Does not meet job requirements
+            {% endif %}
+        </div>
+        <p>
+            {% if candidate.label == 'Shortlist' %}
+            This candidate has strong alignment with the job requirements. Proceed to the next hiring stage.
+            {% elif candidate.label == 'Review' %}
+            This candidate meets some criteria. A manual review may reveal additional qualifications.
+            {% else %}
+            The candidate's profile has significant gaps compared to the job requirements.
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+<!-- ── Skills Breakdown ───────────────────────── -->
+<div class="grid-2 fade-in-up" style="margin-bottom:28px;">
+    <!-- Matched Skills -->
+    <div class="card">
+        <h3 style="font-size:0.95rem;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+            <span style="background:rgba(16,185,129,0.15);padding:5px 10px;border-radius:8px;">✅</span>
+            Matched Skills
+            <span style="margin-left:auto;font-size:0.78rem;color:var(--success);font-weight:600;">{{
+                candidate.matched_list()|length }}</span>
+        </h3>
+        {% if candidate.matched_list() %}
+        <div class="skills-list">
+            {% for skill in candidate.matched_list() %}
+            <span class="skill-chip matched">✓ {{ skill }}</span>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p style="font-size:0.82rem;color:var(--text-muted);">No required skills matched</p>
+        {% endif %}
+    </div>
+
+    <!-- Missing Skills -->
+    <div class="card">
+        <h3 style="font-size:0.95rem;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+            <span style="background:rgba(239,68,68,0.1);padding:5px 10px;border-radius:8px;">❌</span>
+            Missing Skills
+            <span style="margin-left:auto;font-size:0.78rem;color:var(--danger);font-weight:600;">{{
+                candidate.missing_list()|length }}</span>
+        </h3>
+        {% if candidate.missing_list() %}
+        <div class="skills-list">
+            {% for skill in candidate.missing_list() %}
+            <span class="skill-chip missing">✗ {{ skill }}</span>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p style="font-size:0.82rem;color:var(--success);">🎉 All required skills matched!</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ── Score Breakdown Card ───────────────────── -->
+<div class="card fade-in-up" style="margin-bottom:28px;">
+    <h3 style="font-size:0.95rem;font-weight:700;margin-bottom:20px;">📊 Score Breakdown</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:20px;">
+        <div style="text-align:center;padding:16px;background:rgba(108,99,255,0.06);border-radius:10px;">
+            <div
+                style="font-size:1.8rem;font-weight:800;color:var(--accent);font-family:'Plus Jakarta Sans',sans-serif;">
+                {{ candidate.score }}%</div>
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;">Overall Score</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:rgba(16,185,129,0.06);border-radius:10px;">
+            <div
+                style="font-size:1.8rem;font-weight:800;color:var(--success);font-family:'Plus Jakarta Sans',sans-serif;">
+                {{ candidate.matched_list()|length }}</div>
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;">Skills Matched</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:rgba(239,68,68,0.06);border-radius:10px;">
+            <div
+                style="font-size:1.8rem;font-weight:800;color:var(--danger);font-family:'Plus Jakarta Sans',sans-serif;">
+                {{ candidate.missing_list()|length }}</div>
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;">Skills Missing</div>
+        </div>
+        <div style="text-align:center;padding:16px;background:rgba(245,158,11,0.06);border-radius:10px;">
+            <div
+                style="font-size:1.5rem;font-weight:800;font-family:'Plus Jakarta Sans',sans-serif;color:{% if candidate.label=='Shortlist' %}var(--success){% elif candidate.label=='Review' %}var(--warning){% else %}var(--danger){% endif %};">
+                {{ candidate.label }}</div>
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;">Final Decision</div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Job Details ────────────────────────────── -->
+<div class="card fade-in-up">
+    <h3 style="font-size:0.95rem;font-weight:700;margin-bottom:16px;">💼 Job: {{ job.title }}</h3>
+    <p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.8;margin-bottom:14px;">{{ job.description }}
+    </p>
+    <div>
+        <div
+            style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">
+            Required Skills</div>
+        <div class="skills-list">
+            {% for skill in job.skills_list() %}
+            <span class="skill-chip {{ 'matched' if skill in candidate.matched_list() else 'missing' }}">
+                {{ '✓' if skill in candidate.matched_list() else '✗' }} {{ skill }}
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Animate gauge
+    const score = {{ candidate.score }};
+    const circumference = 2 * Math.PI * 80;
+    const circle = document.getElementById('gaugeCircle');
+    const display = document.getElementById('scoreDisplay');
+    let current = 0;
+
+    function animate() {
+        if (current <= score) {
+            const dashArray = (current / 100) * circumference;
+            circle.setAttribute('stroke-dasharray', dashArray + ' ' + circumference);
+            display.textContent = Math.round(current) + '%';
+            current += 1;
+            requestAnimationFrame(animate);
+        }
+    }
+    setTimeout(animate, 300);
+</script>
+{% endblock %}

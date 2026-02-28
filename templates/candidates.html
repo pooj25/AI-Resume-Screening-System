@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}All Candidates — AI Resume Screener{% endblock %}
+
+{% block content %}
+<div class="page-header fade-in-up">
+    <h1>👥 All Candidates</h1>
+    <p class="subtitle">Filter, sort, and review all screened candidates</p>
+</div>
+
+<!-- ── Filter Bar ──────────────────────────────── -->
+<form method="GET" action="{{ url_for('candidates') }}" class="filter-bar card fade-in-up"
+    style="padding:16px 20px;flex-direction:row;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:24px;">
+    <label style="margin:0;color:var(--text-secondary);font-size:0.82rem;">Filter by:</label>
+    <select name="job_id" style="width:auto;min-width:180px;">
+        <option value="">All Jobs</option>
+        {% for job in jobs %}
+        <option value="{{ job.id }}" {% if job_filter==job.id %}selected{% endif %}>{{ job.title }}</option>
+        {% endfor %}
+    </select>
+    <select name="label" style="width:auto;min-width:150px;">
+        <option value="">All Status</option>
+        <option value="Shortlist" {% if label_filter=='Shortlist' %}selected{% endif %}>✅ Shortlist</option>
+        <option value="Review" {% if label_filter=='Review' %}selected{% endif %}>⏳ Review</option>
+        <option value="Reject" {% if label_filter=='Reject' %}selected{% endif %}>❌ Reject</option>
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm">Apply Filter</button>
+    {% if job_filter or label_filter %}
+    <a href="{{ url_for('candidates') }}" class="btn btn-outline btn-sm">✕ Clear</a>
+    {% endif %}
+    <span style="margin-left:auto;font-size:0.82rem;color:var(--text-muted);">{{ candidates|length }} result(s)</span>
+</form>
+
+<!-- ── Candidates Table ─────────────────────────── -->
+<div class="card fade-in-up">
+    {% if candidates %}
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Candidate</th>
+                    <th>Job Applied</th>
+                    <th>Match Score</th>
+                    <th>Matched Skills</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in candidates %}
+                <tr class="fade-in-up">
+                    <td style="color:var(--text-muted);font-size:0.78rem;">{{ loop.index }}</td>
+                    <td>
+                        <div style="font-weight:600;color:var(--text-primary);">{{ c.name }}</div>
+                        {% if c.email %}
+                        <div style="font-size:0.72rem;color:var(--text-muted);">{{ c.email }}</div>
+                        {% endif %}
+                    </td>
+                    <td style="color:var(--text-secondary);font-size:0.85rem;">{{ c.job.title if c.job else '—' }}</td>
+                    <td>
+                        <div class="score-bar-wrap" style="min-width:140px;">
+                            <div class="score-bar-bg">
+                                <div class="score-bar-fill"
+                                    style="width:{{ c.score }}%;background:
+                  {% if c.score>=70 %}var(--success){% elif c.score>=40 %}var(--warning){% else %}var(--danger){% endif %};"></div>
+                            </div>
+                            <span class="score-text"
+                                style="color:{% if c.score>=70 %}var(--success){% elif c.score>=40 %}var(--warning){% else %}var(--danger){% endif %};">
+                                {{ c.score }}%
+                            </span>
+                        </div>
+                    </td>
+                    <td>
+                        <div style="display:flex;flex-wrap:wrap;gap:4px;max-width:200px;">
+                            {% for skill in c.matched_list()[:3] %}
+                            <span class="skill-chip matched" style="font-size:0.68rem;padding:2px 8px;">{{ skill
+                                }}</span>
+                            {% endfor %}
+                            {% if c.matched_list()|length > 3 %}
+                            <span style="font-size:0.7rem;color:var(--text-muted);">+{{ c.matched_list()|length - 3
+                                }}</span>
+                            {% endif %}
+                            {% if not c.matched_list() %}
+                            <span style="font-size:0.75rem;color:var(--text-muted);">—</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge badge-{{ c.label|lower }}">
+                            {{ '✅' if c.label=='Shortlist' else ('⏳' if c.label=='Review' else '❌') }} {{ c.label }}
+                        </span>
+                    </td>
+                    <td style="color:var(--text-muted);font-size:0.78rem;white-space:nowrap;">{{
+                        c.uploaded_at.strftime('%b %d, %Y') }}</td>
+                    <td>
+                        <div style="display:flex;gap:6px;">
+                            <a href="{{ url_for('result', candidate_id=c.id) }}" class="btn btn-outline btn-sm">📋
+                                View</a>
+                            <form action="{{ url_for('delete_candidate', candidate_id=c.id) }}" method="POST"
+                                onsubmit="return confirm('Remove {{ c.name }}?')" style="display:inline;">
+                                <button type="submit" class="btn btn-danger btn-sm btn-icon" title="Remove">🗑</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <span class="empty-icon">🔍</span>
+        <p>No candidates found{% if job_filter or label_filter %} with the current filters{% endif %}.</p>
+        {% if not job_filter and not label_filter %}
+        <a href="{{ url_for('upload') }}" class="btn btn-primary" style="margin-top:16px;">Upload First Resume →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
