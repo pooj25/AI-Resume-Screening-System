@@ -61,6 +61,31 @@
 
     <!-- Candidate Info -->
     <div class="result-info" style="flex:1;">
+        <!-- Recommendation Banner -->
+        <div class="recommendation-banner banner-{{ candidate.label.lower() }}">
+            <div class="banner-icon">
+                {% if candidate.label == 'Shortlist' %}✅{% elif candidate.label == 'Review' %}⏳{% else %}❌{% endif %}
+            </div>
+            <div class="banner-text">
+                <h3>Result: {{ candidate.label }}</h3>
+                <p>Candidate match score: {{ candidate.score }}%</p>
+            </div>
+        </div>
+
+        <!-- Name Verification Warning -->
+        {% if not candidate.name_match %}
+        <div class="warning-banner"
+            style="background: rgba(255, 193, 7, 0.1); border: 1px solid #ffc107; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 1rem;">
+            <div style="font-size: 1.5rem;">⚠️</div>
+            <div>
+                <h4 style="color: #ffc107; margin: 0 0 0.5rem 0;">Name Mismatch Warning</h4>
+                <p style="margin: 0; opacity: 0.9; font-size: 0.9rem;">
+                    The name entered (<strong>{{ candidate.name }}</strong>) does not match the name found in the resume
+                    (<strong>{{ candidate.extracted_name }}</strong>). Please verify the candidate's identity.
+                </p>
+            </div>
+        </div>
+        {% endif %}
         <div style="margin-bottom:8px;">
             <span class="badge badge-{{ candidate.label|lower }}" style="font-size:0.82rem;padding:6px 16px;">
                 {{ '✅' if candidate.label=='Shortlist' else ('⏳' if candidate.label=='Review' else '❌') }} {{

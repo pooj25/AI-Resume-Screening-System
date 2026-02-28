@@ -124,6 +124,19 @@ def extract_skills(text: str, skill_pool: set) -> set:
 
 
 # ────────────────────────────────────────────
+# Name Extraction
+# ────────────────────────────────────────────
+
+def extract_name_from_text(text: str) -> str:
+    """Extract name (assumes first non-empty line of the resume)."""
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+    if lines:
+        # Take the first line as the name
+        return lines[0]
+    return "Unknown"
+
+
+# ────────────────────────────────────────────
 # Scoring Engine
 # ────────────────────────────────────────────
 
@@ -135,15 +148,25 @@ def compute_score(resume_path: str, job_description: str, job_skills_required: l
             score: float (0-100),
             matched_skills: list,
             missing_skills: list,
-            label: str
+            label: str,
+            extracted_name: str
         }
     """
     # 1. Extract resume text
     resume_text = extract_text(resume_path)
     if not resume_text.strip():
-        return {"score": 0, "matched_skills": [], "missing_skills": job_skills_required, "label": "Reject"}
+        return {
+            "score": 0, 
+            "matched_skills": [], 
+            "missing_skills": job_skills_required, 
+            "label": "Reject",
+            "extracted_name": "None"
+        }
 
-    # 2. TF-IDF cosine similarity
+    # 2. Extract name
+    extracted_name = extract_name_from_text(resume_text)
+
+    # 3. TF-IDF cosine similarity
     processed_resume = preprocess(resume_text)
     processed_jd = preprocess(job_description)
 
@@ -154,7 +177,7 @@ def compute_score(resume_path: str, job_description: str, job_skills_required: l
     except Exception:
         cosine_sim = 0.0
 
-    # 3. Skill matching
+    # 4. Skill matching
     # Combine job required skills + global keyword pool
     skill_pool = SKILL_KEYWORDS.union({s.lower() for s in job_skills_required})
     resume_skills = extract_skills(resume_text, skill_pool)
@@ -169,11 +192,11 @@ def compute_score(resume_path: str, job_description: str, job_skills_required: l
         missing = set()
         skill_ratio = 0.0
 
-    # 4. Composite score (60% cosine sim + 40% skill match)
+    # 5. Composite score (60% cosine sim + 40% skill match)
     raw_score = (0.6 * cosine_sim + 0.4 * skill_ratio) * 100
     score = round(min(raw_score, 100), 1)
 
-    # 5. Label
+    # 6. Label
     if score >= 70:
         label = "Shortlist"
     elif score >= 40:
@@ -185,5 +208,6 @@ def compute_score(resume_path: str, job_description: str, job_skills_required: l
         "score": score,
         "matched_skills": sorted(list(matched)),
         "missing_skills": sorted(list(missing)),
-        "label": label
+        "label": label,
+        "extracted_name": extracted_name
     }

@@ -124,6 +124,16 @@ def upload():
 
         # ── Run NLP Scoring ──
         result = compute_score(filepath, job.description, job.skills_list())
+        
+        # ── Name Verification ──
+        extracted_name = result.get('extracted_name', 'Unknown')
+        # Simple comparison: check if input name is roughly in extracted name or vice versa
+        name_clean = name.lower().strip()
+        extracted_clean = extracted_name.lower().strip()
+        
+        # Common comparison: check if all words in input name are in extracted name
+        name_words = name_clean.split()
+        match_status = any(word in extracted_clean for word in name_words) if name_words else False
 
         candidate = Candidate(
             name=name,
@@ -133,6 +143,8 @@ def upload():
             score=result['score'],
             matched_skills=','.join(result['matched_skills']),
             missing_skills=','.join(result['missing_skills']),
+            extracted_name=extracted_name,
+            name_match=match_status,
             label=result['label']
         )
         db.session.add(candidate)

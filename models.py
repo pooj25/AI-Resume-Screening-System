@@ -26,6 +26,8 @@ class Candidate(db.Model):
     score = db.Column(db.Float, default=0.0)
     matched_skills = db.Column(db.Text, default='')  # comma-separated
     missing_skills = db.Column(db.Text, default='')  # comma-separated
+    extracted_name = db.Column(db.String(150), nullable=True)
+    name_match = db.Column(db.Boolean, default=True)
     label = db.Column(db.String(50), default='Review')  # Shortlist / Review / Reject
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
 
