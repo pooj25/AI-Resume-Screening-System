@@ -221,10 +221,18 @@ def delete_candidate(candidate_id):
 
 
 # ── Init ───────────────────────────────────────────────────
+# ── Production Safe Initialization ─────────────────────────
+
+# Create uploads folder
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# Create tables & seed jobs (runs on Render too)
+with app.app_context():
+    db.create_all()
+    seed_jobs()
+
+
+# ── Local Development Only ─────────────────────────────────
 if __name__ == '__main__':
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    with app.app_context():
-        db.create_all()
-        seed_jobs()
     print("\n🚀 AI Resume Screener running at http://127.0.0.1:5000\n")
-    app.run(debug=True)
+    app.run()
