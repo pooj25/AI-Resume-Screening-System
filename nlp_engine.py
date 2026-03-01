@@ -197,7 +197,7 @@ def compute_score(resume_path: str, job_description: str, job_skills_required: l
     score = round(min(raw_score, 100), 1)
 
     # 6. Label
-    if score >= 70:
+    if score >= 60:
         label = "Shortlist"
     elif score >= 40:
         label = "Review"
